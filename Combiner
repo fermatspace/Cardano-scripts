@@ -1,11 +1,15 @@
 #!/bin/bash
 
-###########################################################
+#############################################################
 # This bash script merges all utxo's at an script addres 
 # to one utxo for ease of use. The input of the script
 # should be the address.
 # EXAMPLE: ./combiner.sh $(cat ~/path/to/address.addr)
-##########################################################
+# The script outputs an tx.body that only needs to be sigend
+# and send to the chain. Also there is an log file with some
+# info. Also the final transaction with correct calculated 
+# fees is made for controlling the tx-body.
+#############################################################
 
 
 
