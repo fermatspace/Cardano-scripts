@@ -3,10 +3,9 @@
 ###########################################################
 # This bash script merges all utxo's at an script addres 
 # to one utxo for ease of use. The input of the script
-# should be
-#
-#
-##########################################################3
+# should be the address.
+# EXAMPLE: ./combiner.sh $(cat ~/path/to/address.addr)
+##########################################################
 
 
 
