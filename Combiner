@@ -1,0 +1,80 @@
+#!/bin/bash
+
+###########################################################
+# This bash script merges all utxo's at an script addres 
+# to one utxo for ease of use. The input of the script
+# should be
+#
+#
+##########################################################3
+
+
+
+######################################################
+# Getting the UTXO's to consolidate
+######################################################
+
+utxos=$(cardano-cli query utxo --mainnet --address $1 | awk '{print $1, $2, $3}'| awk 'NR > 2 {print }')
+date > log
+echo "Used UTXO's" >> log
+echo "$utxos" >> log
+if [ -z "$utxos" ]
+then
+	echo "No UTXO's found at the address $(cat $1)"
+	exit
+else
+	echo "UTXO's found at the address"
+fi
+
+TotalValue=$(echo "$utxos" | awk '{sum+= $3} END {print sum}')
+echo "The total value of the transaction input is $TotalValue" >> log
+
+#####################################################
+# Building raw transaction
+#####################################################
+echo "cardano-cli transaction build-raw \\" > transaction
+echo "$utxos" | while read line
+do
+        TxHash=$(echo "$line" | awk '{print $1}')
+        TxId=$(echo "$line" | awk '{print $2}')
+        echo "--tx-in $TxHash#$TxId \\" >> transaction
+done
+echo "--tx-out $1+$TotalValue \\" >> transaction
+echo "--invalid-hereafter 0 \\" >> transaction
+echo "--fee 0 \\" >> transaction
+echo "--out-file tx.draft" >> transaction
+bash transaction
+
+####################################################
+# Calculate fee's of raw transaction
+####################################################
+echo "cardano-cli transaction calculate-min-fee \\" > transaction
+echo "--tx-body-file tx.draft \\" >> transaction
+echo "--tx-in-count $(echo "$utxos" | awk '{sum+= 1} END {print sum}') \\" >> transaction
+echo "--tx-out-count 1 \\" >> transaction
+echo "--witness-count 1 \\" >> transaction
+echo "--mainnet \\" >> transaction
+echo "--protocol-params-file protocol.json" >> transaction 
+Fees=$(bash transaction | awk '{print $1}' )
+
+echo "the fees are $Fees" >> log
+Change=$(expr $TotalValue - $Fees)
+echo "Total change is $Change" >> log
+SlotNo=$(cardano-cli query tip --mainnet)
+TTL=$(expr $(echo "$SlotNo" | grep slot | awk '{print $2}' | sed 's/,//g') + 200 )
+
+###################################################
+# Building final transaction
+####################################################
+echo "cardano-cli transaction build-raw \\" > transaction
+echo "$utxos" | while read line
+do
+        TxHash=$(echo "$line" | awk '{print $1}')
+        TxId=$(echo "$line" | awk '{print $2}')
+        echo "--tx-in $TxHash#$TxId \\" >> transaction
+done
+echo "--tx-out $1+$Change \\" >> transaction
+echo "--invalid-hereafter $TTL \\" >> transaction
+echo "--fee $Fees \\" >> transaction
+echo "--out-file tx.draft" >> transaction
+bash transaction
